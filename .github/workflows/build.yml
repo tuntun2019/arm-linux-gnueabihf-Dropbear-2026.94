@@ -2,16 +2,16 @@ name: Build Dropbear 2026.94 armv7 static
 on:
   push:
     branches: [ main ]
-  workflow_dispatch: # 支持手动点按钮触发
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
-      - name: Install cross toolchain arm-linux-gnueabihf
+      - name: Install cross toolchain + libcrypt-dev
         run: |
           sudo apt update
-          sudo apt install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf make wget bzip2 file
+          sudo apt install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf make wget bzip2 file libcrypt-dev
 
       - name: Download dropbear 2026.94 source
         run: |
@@ -31,8 +31,8 @@ jobs:
             --disable-utmp \
             --disable-syslog \
             --enable-bundled-libtom \
-            --prefix=/tmp/out
-          # multi 单二进制，包含 dropbear dbclient dropbearkey dropbearconvert scp
+            --prefix=/tmp/out \
+            LIBS="-lcrypt"
           PROGRAMS="dropbear dbclient dropbearkey dropbearconvert scp" MULTI=1 make -j$(nproc)
           arm-linux-gnueabihf-strip dropbearmulti
           file dropbearmulti
