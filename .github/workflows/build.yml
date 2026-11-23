@@ -1,60 +1,48 @@
-name: Build Dropbear 2026.94 armv7 armhf
-
+name: Build Dropbear 2026.94 armv7 static
 on:
-  workflow_dispatch:
   push:
     branches: [ main ]
-
-env:
-  DROPBEAR_VER: "2026.94"
-  DROPBEAR_URL: "https://matt.ucc.asn.au/dropbear/releases/dropbear-2026.94.tar.bz2"
-  SHA256: "e098034a843699200c8c977a991fff73159735bf795d5f72ef672c41a6b1ae81"
+  workflow_dispatch: # 支持手动点按钮触发
 
 jobs:
   build:
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        arch: [armv7]
     steps:
-      - name: Install cross compile deps
+      - name: Install cross toolchain arm-linux-gnueabihf
         run: |
           sudo apt update
-          sudo apt install -y build-essential bzip2 pkg-config crossbuild-essential-armhf
+          sudo apt install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf make wget bzip2 file
 
-      - name: Download source & verify
+      - name: Download dropbear 2026.94 source
         run: |
-          wget -O dropbear-${{ env.DROPBEAR_VER }}.tar.bz2 ${{ env.DROPBEAR_URL }}
-          echo "${{ env.SHA256 }}  dropbear-${{ env.DROPBEAR_VER }}.tar.bz2" | sha256sum -c
-          tar -xf dropbear-${{ env.DROPBEAR_VER }}.tar.bz2
+          wget https://matt.ucc.asn.au/dropbear/releases/dropbear-2026.94.tar.bz2
+          tar -jxvf dropbear-2026.94.tar.bz2
+          cd dropbear-2026.94
 
-      - name: Configure & compile static (no zlib)
+      - name: Configure & compile static multi
         run: |
-          cd dropbear-${{ env.DROPBEAR_VER }}
+          cd dropbear-2026.94
           ./configure \
+            --host=arm-linux-gnueabihf \
             --enable-static \
             --disable-zlib \
-            --disable-x11-forwarding \
-            --disable-agent-forwarding \
+            --disable-pam \
+            --disable-wtmp \
+            --disable-utmp \
             --disable-syslog \
-            --disable-lastlog \
-            --host=arm-linux-gnueabihf \
-            CC=arm-linux-gnueabihf-gcc
-          make -j$(nproc) PROGRAMS="dropbear dbclient dropbearkey dropbearconvert scp"
-
-      - name: Collect binaries + strip
-        run: |
-          mkdir -p out/${{ matrix.arch }}
-          arm-linux-gnueabihf-strip dropbear
-          arm-linux-gnueabihf-strip dbclient
-          arm-linux-gnueabihf-strip dropbearkey
-          arm-linux-gnueabihf-strip dropbearconvert
-          arm-linux-gnueabihf-strip scp
-          cp dropbear dbclient dropbearkey dropbearconvert scp out/${{ matrix.arch }}/
-          file out/${{ matrix.arch }}/*
+            --enable-bundled-libtom \
+            --prefix=/tmp/out
+          # multi 单二进制，包含 dropbear dbclient dropbearkey dropbearconvert scp
+          PROGRAMS="dropbear dbclient dropbearkey dropbearconvert scp" MULTI=1 make -j$(nproc)
+          arm-linux-gnueabihf-strip dropbearmulti
+          file dropbearmulti
+          cp dropbearmulti ../dropbearmulti-armv7l-gnueabihf
+          sha256sum dropbearmulti > ../sha256sum.txt
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dropbear-${{ env.DROPBEAR_VER }}-${{ matrix.arch }}
-          path: out/${{ matrix.arch }}/
+          name: dropbear-2026.94-armv7l-static
+          path: |
+            dropbearmulti-armv7l-gnueabihf
+            sha256sum.txt
