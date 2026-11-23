@@ -1,4 +1,4 @@
-name: Build Dropbear 2026.94 armv7 static
+name: Build Dropbear arm-linux-gnueabihf
 on:
   push:
     branches: [ main ]
@@ -6,24 +6,34 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
-      - name: Install cross toolchain + libcrypt-dev
-        run: |
-          sudo apt update
-          sudo apt install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf make wget bzip2 file libcrypt-dev
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Download dropbear 2026.94 source
+      - name: Install cross toolchain
         run: |
-          wget https://matt.ucc.asn.au/dropbear/releases/dropbear-2026.94.tar.bz2
-          tar -jxvf dropbear-2026.94.tar.bz2
-          cd dropbear-2026.94
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf libc6-dev-armhf-cross
 
-      - name: Configure & compile static multi
+      - name: Download dropbear source
         run: |
+          wget https://mjt.dtnsm.ch/source/dropbear-2026.94.tar.gz
+          tar xf dropbear-2026.94.tar.gz
+
+      - name: Build dropbear
+        run: |
+          set -e
           cd dropbear-2026.94
+          # 编译器自检
+          echo 'int main(){return 0;}' > test.c
+          arm-linux-gnueabihf-gcc test.c -o test.elf
+          file test.elf
+          rm test.c test.elf
+
           ./configure \
             --host=arm-linux-gnueabihf \
+            CC=arm-linux-gnueabihf-gcc \
             --enable-static \
             --disable-zlib \
             --disable-pam \
@@ -33,6 +43,7 @@ jobs:
             --enable-bundled-libtom \
             --prefix=/tmp/out \
             LIBS="-lcrypt"
+
           PROGRAMS="dropbear dbclient dropbearkey dropbearconvert scp" MULTI=1 make -j$(nproc)
           arm-linux-gnueabihf-strip dropbearmulti
           file dropbearmulti
@@ -42,7 +53,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dropbear-2026.94-armv7l-static
+          name: dropbear-armv7l-gnueabihf
           path: |
             dropbearmulti-armv7l-gnueabihf
             sha256sum.txt
