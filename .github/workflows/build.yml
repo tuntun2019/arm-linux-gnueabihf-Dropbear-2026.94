@@ -1,4 +1,4 @@
-name: Build Dropbear 2026.94 armv7
+name: Build Dropbear 2026.94 armv7 armhf
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ jobs:
       - name: Install cross compile deps
         run: |
           sudo apt update
-          sudo apt install -y build-essential bzip2 libz-dev pkg-config crossbuild-essential-armhf
+          sudo apt install -y build-essential bzip2 pkg-config crossbuild-essential-armhf
 
       - name: Download source & verify
         run: |
@@ -28,24 +28,29 @@ jobs:
           echo "${{ env.SHA256 }}  dropbear-${{ env.DROPBEAR_VER }}.tar.bz2" | sha256sum -c
           tar -xf dropbear-${{ env.DROPBEAR_VER }}.tar.bz2
 
-      - name: Configure & compile static
+      - name: Configure & compile static (no zlib)
         run: |
           cd dropbear-${{ env.DROPBEAR_VER }}
           ./configure \
             --enable-static \
-            --disable-shared \
+            --disable-zlib \
+            --disable-x11-forwarding \
+            --disable-agent-forwarding \
+            --disable-syslog \
+            --disable-lastlog \
             --host=arm-linux-gnueabihf \
             CC=arm-linux-gnueabihf-gcc
           make -j$(nproc) PROGRAMS="dropbear dbclient dropbearkey dropbearconvert scp"
 
-      - name: Collect binaries
+      - name: Collect binaries + strip
         run: |
           mkdir -p out/${{ matrix.arch }}
-          cp dropbear-${{ env.DROPBEAR_VER }}/dropbear out/${{ matrix.arch }}/
-          cp dropbear-${{ env.DROPBEAR_VER }}/dbclient out/${{ matrix.arch }}/
-          cp dropbear-${{ env.DROPBEAR_VER }}/dropbearkey out/${{ matrix.arch }}/
-          cp dropbear-${{ env.DROPBEAR_VER }}/dropbearconvert out/${{ matrix.arch }}/
-          cp dropbear-${{ env.DROPBEAR_VER }}/scp out/${{ matrix.arch }}/
+          arm-linux-gnueabihf-strip dropbear
+          arm-linux-gnueabihf-strip dbclient
+          arm-linux-gnueabihf-strip dropbearkey
+          arm-linux-gnueabihf-strip dropbearconvert
+          arm-linux-gnueabihf-strip scp
+          cp dropbear dbclient dropbearkey dropbearconvert scp out/${{ matrix.arch }}/
           file out/${{ matrix.arch }}/*
 
       - name: Upload artifact
