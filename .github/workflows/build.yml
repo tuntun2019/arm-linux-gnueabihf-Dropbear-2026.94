@@ -14,12 +14,14 @@ jobs:
       - name: Install cross toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf libc6-dev-armhf-cross
+          sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf libc6-dev-armhf-cross bzip2
 
-      - name: Download dropbear source
+      - name: Download dropbear source (official + fallback mirror)
         run: |
-          wget https://mjt.dtnsm.ch/source/dropbear-2026.94.tar.gz
-          tar xf dropbear-2026.94.tar.gz
+          if ! wget -c https://matt.ucc.asn.au/dropbear/releases/dropbear-2026.94.tar.bz2; then
+            wget -c https://dropbear.nl/mirror/releases/dropbear-2026.94.tar.bz2
+          fi
+          tar -jxf dropbear-2026.94.tar.bz2
 
       - name: Build dropbear
         run: |
